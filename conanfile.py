@@ -428,6 +428,9 @@ class QtConan(ConanFile):
                     return libs
                 args.append("\"%s_LIBS=%s\"" % (var, " ".join(_gather_libs(package))))
 
+        if tools.os_info.is_linux:
+            args.append("-no-feature-statx")
+
         if self.settings.os == "Linux":
             if self.options.GUI:
                 args.append("-qt-xcb")
