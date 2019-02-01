@@ -44,7 +44,7 @@ class QtConan(ConanFile):
     _submodules = _getsubmodules()
 
     name = "qt"
-    version = "5.12.0"
+    version = "5.12.1"
     description = "Qt is a cross-platform framework for graphical user interfaces."
     topics = ("conan", "qt", "ui")
     url = "https://github.com/bincrafters/conan-qt"
@@ -52,7 +52,7 @@ class QtConan(ConanFile):
     license = "LGPL-3.0"
     author = "Bincrafters <bincrafters@gmail.com>"
     exports = ["LICENSE.md", "qtmodules.conf", "*.diff"]
-    settings = "os", "arch", "compiler", "build_type"
+    settings = "os", "arch", "compiler", "build_type", "os_build", "arch_build"
 
     options = dict({
         "shared": [True, False],
@@ -142,7 +142,7 @@ class QtConan(ConanFile):
         if self.options.GUI:
             pack_names = []
             if tools.os_info.with_apt:
-                pack_names = ["libxcb1-dev", "libx11-dev", "libc6-dev"]
+                pack_names = ["libxcb1-dev", "libx11-dev", "libc6-dev", "libxkbcommon-dev"]
             elif tools.os_info.is_linux and not tools.os_info.with_pacman:
                 pack_names = ["libxcb-devel", "libX11-devel", "glibc-devel"]
 
@@ -244,7 +244,7 @@ class QtConan(ConanFile):
             pack_names = []
             if tools.os_info.is_linux:
                 if tools.os_info.with_apt:
-                    pack_names = ["libxcb1", "libx11-6"]
+                    pack_names = ["libxcb1", "libx11-6", "libxkbcommon0"]
                     if self.options.opengl == "desktop":
                         pack_names.append("libgl1-mesa-dev")
                     elif self.options.opengl == "es2":
@@ -268,14 +268,14 @@ class QtConan(ConanFile):
         url = "http://download.qt.io/official_releases/qt/{0}/{1}/single/qt-everywhere-src-{1}" \
             .format(self.version[:self.version.rfind('.')], self.version)
         if tools.os_info.is_windows:
-            tools.get("%s.zip" % url, sha256='a60a82069d2180a2905913b6e8a901cbcbb74e6a749d25de3a892dc97151b31d')
+            tools.get("%s.zip" % url, md5='4649d4e51ca836fbde08565582353140')
         elif sys.version_info.major >= 3:
-            tools.get("%s.tar.xz" % url, sha256='356f42d9087718f22f03d13d0c2cdfb308f91dc3cf0c6318bed33f2094cd9d6c')
+            tools.get("%s.tar.xz" % url, md5='6a37466c8c40e87d4a19c3f286ec2542')
         else:  # python 2 cannot deal with .xz archives
             self.run("wget -qO- %s.tar.xz | tar -xJ " % url)
         shutil.move("qt-everywhere-src-%s" % self.version, "qt5")
 
-        for patch in ["cc04651dea4c4678c626cb31b3ec8394426e2b25.diff", "fffe5d622549f85968ea0be9717b90cbc020be71.diff"]:
+        for patch in ["cc04651dea4c4678c626cb31b3ec8394426e2b25.diff", "fffe5d622549f85968ea0be9717b90cbc020be71.diff", "f917000890e6360c92328ac6e3f052294e3a2959.diff"]:
             tools.patch("qt5/qtbase", patch)
 
     def _xplatform(self):
@@ -476,7 +476,12 @@ class QtConan(ConanFile):
         else:
             xplatform_val = self._xplatform()
             if xplatform_val:
-                args += ["-xplatform %s" % xplatform_val]
+                if (not tools.cross_building(self.settings)) or\
+                        (self.settings.os_build == self.settings.os and\
+                         self.settings.arch_build == "x86_64" and self.settings.arch == "x86"):
+                    args += ["-platform %s" % xplatform_val]
+                else:
+                    args += ["-xplatform %s" % xplatform_val]
             else:
                 self.output.warn("host not supported: %s %s %s %s" %
                                  (self.settings.os, self.settings.compiler,
